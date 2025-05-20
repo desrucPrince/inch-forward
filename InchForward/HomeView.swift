@@ -145,8 +145,8 @@ struct NoGoalView: View {
 }
 
 struct GoalAndMoveView: View {
-    @ObservedObject var goal: Goal // Use ObservedObject for @Model classes passed to subviews
-    @ObservedObject var move: Move
+    @Bindable var goal: Goal // Changed from @ObservedObject to @Bindable
+    @Bindable var move: Move // Changed from @ObservedObject to @Bindable
     @ObservedObject var viewModel: GoalViewModel // For actions
     @Binding var showSwapMoveSheet: Bool
 
@@ -330,8 +330,8 @@ struct SwapMoveView: View {
                                     dismiss()
                                 }
                             )
-                            .listRowSeparator(.hidden)
-                            .padding(.vertical, 4)
+                            .listRowSeparator(Visibility.automatic)
+                            .padding(Edge.Set.vertical, 4)
                         }
                     }
                     .listStyle(.plain)
@@ -354,7 +354,7 @@ struct SwapMoveView: View {
 
 // --- Placeholder for MoveOptionCard (from previous discussions) ---
 struct MoveOptionCard: View {
-    @ObservedObject var move: Move
+    @Bindable var move: Move
     let estimatedTime: String
     let action: () -> Void
 

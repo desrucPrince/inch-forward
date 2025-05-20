@@ -30,8 +30,8 @@ class GoalViewModel: ObservableObject {
     }
 
     private var modelContext: ModelContext
-    private let suggestionEngine = SuggestionEngine() // Assuming you have this
-    private let reminderManager = ReminderManager()   // Assuming you have this
+//    private let suggestionEngine = SuggestionEngine() // Assuming you have this
+//    private let reminderManager = ReminderManager()   // Assuming you have this
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -136,7 +136,7 @@ class GoalViewModel: ObservableObject {
 
     func postponeMove(for interval: TimeInterval = 3600) { // Default 1 hour
         guard let move = todaysMove else { return }
-        reminderManager.scheduleReminder(for: move, in: interval)
+//        reminderManager.scheduleReminder(for: move, in: interval)
         // UI state update, actual persistence of "postponed" is via the reminder
         // You could create a "skipped" DailyProgress entry to mark that an action was taken.
         // For simplicity, we'll just update UI state and rely on the notification.
