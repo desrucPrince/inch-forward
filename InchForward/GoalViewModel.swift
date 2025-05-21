@@ -97,27 +97,32 @@ class GoalViewModel: ObservableObject {
     }
 
     private func determineDefaultOrSuggestMove(for goal: Goal) {
-        if let recommended = goal.todaysRecommendedMove {
-            todaysMove = recommended
-            self.alternativeMoves = goal.moves.filter { $0.id != recommended.id } // Prime alternatives
-        } else if !goal.moves.isEmpty { // No default, but other moves exist
-            todaysMove = goal.moves.first
-            self.alternativeMoves = goal.moves.filter { $0.id != todaysMove?.id }
-        } else {
-            // No moves defined for the goal yet, could suggest creating one or use LLM
-            todaysMove = nil
+        self.todaysMove = goal.todaysRecommendedMove // This property handles the nil case if no moves or no default
+        
+        refreshAlternativeMoves(for: goal, excluding: self.todaysMove)
+
+        if self.todaysMove == nil && goal.moves.isEmpty {
+             // No moves defined for the goal yet, could suggest creating one or use LLM
             // Task { await generateMoveOptions(for: goal) } // Optionally auto-generate
         }
     }
 
-    func markMoveAsDone() {
-        guard let goal = currentGoal, let move = todaysMove else { return }
+    // Helper function to refresh alternative moves
+    private func refreshAlternativeMoves(for goal: Goal, excluding excludedMove: Move?) {
+        self.alternativeMoves = goal.moves.filter { $0.id != excludedMove?.id }
+    }
 
-        let progress = DailyProgress(date: Date(), wasSkipped: false, goal: goal, moveCompleted: move)
+    // Helper function to record daily progress
+    private func recordDailyProgress(goal: Goal, move: Move?, wasSkipped: Bool) {
+        let progress = DailyProgress(date: Date(), wasSkipped: wasSkipped, goal: goal, moveCompleted: move)
         modelContext.insert(progress)
         // SwiftData auto-saves often, but explicit save can be good for critical operations
         // try? modelContext.save()
+    }
 
+    func markMoveAsDone() {
+        guard let goal = currentGoal, let move = todaysMove else { return }
+        recordDailyProgress(goal: goal, move: move, wasSkipped: false)
         dailyState = .completed
         // Optionally: Check if goal is completed based on some criteria
         // Optionally: Set up next day's move or clear `todaysMove` to show a "day complete" message
@@ -125,11 +130,7 @@ class GoalViewModel: ObservableObject {
 
     func markAsSkipped() {
         guard let goal = currentGoal else { return }
-
-        // Even if skipped, we might want to record *which* move was presented/skipped
-        let progress = DailyProgress(date: Date(), wasSkipped: true, goal: goal, moveCompleted: todaysMove)
-        modelContext.insert(progress)
-        // try? modelContext.save()
+        recordDailyProgress(goal: goal, move: todaysMove, wasSkipped: true)
         dailyState = .skipped
     }
 
@@ -151,10 +152,8 @@ class GoalViewModel: ObservableObject {
             return
         }
 
-        // Prioritize existing moves for the goal
-        if !goal.moves.isEmpty {
-            alternativeMoves = goal.moves.filter { $0.id != todaysMove?.id }
-        }
+        // Use the helper function to refresh alternatives
+        refreshAlternativeMoves(for: goal, excluding: todaysMove)
 
         // Optionally, supplement or replace with LLM suggestions
         // This is a good place for UX decisions: always LLM? only if few existing?
@@ -184,7 +183,7 @@ class GoalViewModel: ObservableObject {
         dailyState = .pending // Reset to pending as a new move is selected
         // Update alternative moves to not include the new 'todaysMove'
         if let goal = currentGoal {
-            self.alternativeMoves = goal.moves.filter { $0.id != newMove.id }
+            refreshAlternativeMoves(for: goal, excluding: newMove)
         }
     }
 }
