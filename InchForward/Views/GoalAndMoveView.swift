@@ -11,7 +11,7 @@ struct GoalAndMoveView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Goal Information
             VStack(alignment: .leading) {
-                Text("YOUR GOAL:")
+                Text("MACRO GOAL:")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Text(goal.title)
@@ -45,13 +45,14 @@ struct GoalAndMoveView: View {
                     Text(move.displayDuration)
                 }
                 .font(.subheadline)
-                .foregroundColor(.orange)
+                .foregroundColor(.secondary.opacity(0.5))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
-            .background(Color(UIColor.secondarySystemGroupedBackground))
-            .cornerRadius(12)
-            .shadow(radius: 3, x: 0, y: 2)
+            .background(.ultraThinMaterial)
+            .cornerRadius(20)
             .padding(.horizontal)
+            
 
             // Action Buttons
             HStack(spacing: 15) {
@@ -67,12 +68,12 @@ struct GoalAndMoveView: View {
                     Button("Later Today (3hr)") { viewModel.postponeMove(for: 3600 * 3) }
                     Button("Skip for Today", role: .destructive) { viewModel.markAsSkipped() }
                 } label: {
-                    Label("Later / Skip", systemImage: "ellipsis.circle.fill")
+                    Label("Later", systemImage: "ellipsis.circle.fill")
                         .padding(.vertical, 10)
                         .padding(.horizontal, 5)
                         .frame(minWidth: 0, maxWidth: .infinity)
-                        .background(Color.orange)
-                        .foregroundColor(.white)
+                        .background(.ultraThinMaterial)
+                        .foregroundColor(.primary)
                         .font(.headline)
                         .cornerRadius(10)
                 }
@@ -91,8 +92,8 @@ struct GoalAndMoveView: View {
             }
             .padding(.vertical, 10)
             .frame(minWidth: 0, maxWidth: .infinity)
-            .background(color)
-            .foregroundColor(.white)
+            .background(.ultraThinMaterial)
+            .foregroundColor(.primary)
             .font(.headline)
             .cornerRadius(10)
         }
