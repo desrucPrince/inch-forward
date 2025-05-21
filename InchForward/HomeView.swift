@@ -125,22 +125,17 @@ struct HomeView: View {
 struct NoGoalView: View {
     @Binding var showCreateGoalSheet: Bool
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "figure.walk.circle")
-                .font(.system(size: 70))
-                .foregroundColor(.gray)
-            Text("No Active Goal")
-                .font(.title)
-                .fontWeight(.bold)
+        ContentUnavailableView {
+            Label("No Active Goal", systemImage: "figure.walk.circle")
+        } description: {
             Text("Let's set up your first goal to start inching forward!")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
+        } actions: {
             Button("Create Your First Goal") {
                 showCreateGoalSheet = true
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.borderedProminent) // To maintain similar button styling
         }
-        .padding()
+        .padding() // Added padding to match the previous VStack's padding
     }
 }
 
