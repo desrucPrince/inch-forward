@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8BE99C502DDF75A600E6E29A /* AIProxy in Frameworks */ = {isa = PBXBuildFile; productRef = 8BE99C4F2DDF75A600E6E29A /* AIProxy */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		8B430A222DDCF7E40080D8FB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,9 +33,22 @@
 		8B430A2B2DDCF7E40080D8FB /* InchForwardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InchForwardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8BE99C522DDF77E200E6E29A /* Exceptions for "InchForward" folder in "InchForward" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8B430A102DDCF7E20080D8FB /* InchForward */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8B430A132DDCF7E20080D8FB /* InchForward */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8BE99C522DDF77E200E6E29A /* Exceptions for "InchForward" folder in "InchForward" target */,
+			);
 			path = InchForward;
 			sourceTree = "<group>";
 		};
@@ -52,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8BE99C502DDF75A600E6E29A /* AIProxy in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +130,7 @@
 			);
 			name = InchForward;
 			packageProductDependencies = (
+				8BE99C4F2DDF75A600E6E29A /* AIProxy */,
 			);
 			productName = InchForward;
 			productReference = 8B430A112DDCF7E20080D8FB /* InchForward.app */;
@@ -195,6 +214,9 @@
 			);
 			mainGroup = 8B430A082DDCF7E20080D8FB;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8BE99C4E2DDF75A600E6E29A /* XCRemoteSwiftPackageReference "AIProxySwift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8B430A122DDCF7E20080D8FB /* Products */;
 			projectDirPath = "";
@@ -399,6 +421,7 @@
 				DEVELOPMENT_TEAM = F8265QBRGN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = InchForward/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +451,7 @@
 				DEVELOPMENT_TEAM = F8265QBRGN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = InchForward/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -558,6 +582,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8BE99C4E2DDF75A600E6E29A /* XCRemoteSwiftPackageReference "AIProxySwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/lzell/AIProxySwift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.101.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8BE99C4F2DDF75A600E6E29A /* AIProxy */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8BE99C4E2DDF75A600E6E29A /* XCRemoteSwiftPackageReference "AIProxySwift" */;
+			productName = AIProxy;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8B430A092DDCF7E20080D8FB /* Project object */;
 }
