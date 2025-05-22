@@ -64,11 +64,20 @@ struct GoalAndMoveView: View {
                     showSwapMoveSheet = true
                 }
                 Menu {
-                    Button("Later Today (1hr)") { viewModel.postponeMove(for: 3600) }
-                    Button("Later Today (3hr)") { viewModel.postponeMove(for: 3600 * 3) }
-                    Button("Skip for Today", role: .destructive) { viewModel.markAsSkipped() }
+                    Section("⚡ Move Options") {
+                        Button("Break into smaller steps") {
+                            // TODO: Implement break into smaller steps functionality
+                            print("Break into smaller steps tapped")
+                        }
+                    }
+                    
+                    Section("⏰ Timing") {
+                        Button("Snooze 1 hour") { viewModel.postponeMove(for: 3600) }
+                        Button("Snooze 3 hours") { viewModel.postponeMove(for: 3600 * 3) }
+                        Button("Skip for today", role: .destructive) { viewModel.markAsSkipped() }
+                    }
                 } label: {
-                    Label("Later", systemImage: "ellipsis.circle.fill")
+                    Label("Adjust", systemImage: "ellipsis.circle.fill")
                         .padding(.vertical, 10)
                         .padding(.horizontal, 5)
                         .frame(minWidth: 0, maxWidth: .infinity)
