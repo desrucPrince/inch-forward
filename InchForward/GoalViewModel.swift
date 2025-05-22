@@ -284,7 +284,7 @@ final class GoalViewModel {
             await processSMARTResponse(response, for: goal)
             
         } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBodyString) {
-            let message = responseBodyString ?? "No response body"
+            let message = responseBodyString
             print("Gemini SMART formatting request failed. Status: \(statusCode), Body: \(message)")
             aiError = "AI service error during SMART formatting (\(statusCode)). Check console for details."
         } catch {
@@ -385,7 +385,7 @@ final class GoalViewModel {
             await processMoveSuggestionsResponse(response)
             
         } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBodyString) {
-            let message = responseBodyString ?? "No response body"
+            let message = responseBodyString
             print("Gemini request failed. Status: \(statusCode), Body: \(message)")
             aiError = "AI service error (\(statusCode)). Check console for details."
         } catch {
