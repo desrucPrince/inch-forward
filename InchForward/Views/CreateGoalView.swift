@@ -1,4 +1,5 @@
 
+
 import SwiftUI
 import SwiftData
 
@@ -58,7 +59,7 @@ struct CreateGoalView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
+            VStack(spacing: 0) {
                 // Background gradient
                 LinearGradient(
                     colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
@@ -66,96 +67,97 @@ struct CreateGoalView: View {
                     endPoint: .bottom
                 )
                 .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Header section with motivation
-                        VStack(spacing: 12) {
-                            Image(systemName: "arrow.up.right.circle.fill")
-                                .font(.system(size: 50))
-                                .foregroundStyle(selectedGoalType.gradient)
-                                .symbolEffect(.bounce, value: selectedGoalType)
+                .overlay {
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Header section with motivation
+                            VStack(spacing: 0) {
+                                Image(systemName: "arrow.up.right.circle.fill")
+                                    .font(.system(size: 50))
+                                    .foregroundStyle(selectedGoalType.gradient)
+                                    .symbolEffect(.bounce, value: selectedGoalType)
+                                
+                                Text("Every big achievement starts with a single step")
+                                    .font(.headline)
+                                    .multilineTextAlignment(.center)
+                                    .foregroundColor(.secondary)
+                            }
                             
-                            Text("Every big achievement starts with a single step")
-                                .font(.headline)
-                                .multilineTextAlignment(.center)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.top, 20)
-                        
-                        // Goal type selector
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("What type of goal is this?")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                            
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 12) {
-                                ForEach(GoalType.allCases, id: \.self) { type in
-                                    GoalTypeCard(
-                                        type: type,
-                                        isSelected: selectedGoalType == type
-                                    ) {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                            selectedGoalType = type
+                            // Goal type selector
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("What type of goal is this?")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                
+                                LazyVGrid(columns: [
+                                    GridItem(.flexible()),
+                                    GridItem(.flexible()),
+                                    GridItem(.flexible())
+                                ], spacing: 12) {
+                                    ForEach(GoalType.allCases, id: \.self) { type in
+                                        GoalTypeCard(
+                                            type: type,
+                                            isSelected: selectedGoalType == type
+                                        ) {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                selectedGoalType = type
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        
-                        // Input fields
-                        VStack(spacing: 20) {
-                            // Title field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Goal Title")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
+                            
+                            // Input fields
+                            VStack(spacing: 20) {
+                                // Title field
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Goal Title")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    
+                                    TextField("What do you want to achieve?", text: $title)
+                                        .textFieldStyle(ModernTextFieldStyle())
+                                        .focused($titleFieldFocused)
+                                        .submitLabel(.next)
+                                        .onSubmit {
+                                            descriptionFieldFocused = true
+                                        }
+                                }
                                 
-                                TextField("What do you want to achieve?", text: $title)
-                                    .textFieldStyle(ModernTextFieldStyle())
-                                    .focused($titleFieldFocused)
-                                    .submitLabel(.next)
-                                    .onSubmit {
-                                        descriptionFieldFocused = true
-                                    }
+                                // Description field
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Description")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    
+                                    TextField("Add more details (optional)", text: $description, axis: .vertical)
+                                        .textFieldStyle(ModernTextFieldStyle(isMultiline: true))
+                                        .focused($descriptionFieldFocused)
+                                        .frame(minHeight: 80)
+                                }
                             }
                             
-                            // Description field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Description")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                TextField("Add more details (optional)", text: $description, axis: .vertical)
-                                    .textFieldStyle(ModernTextFieldStyle(isMultiline: true))
-                                    .focused($descriptionFieldFocused)
-                                    .frame(minHeight: 80)
+                            // 1% improvement tip
+                            if selectedGoalType == .micro {
+                                TipCard(
+                                    icon: "lightbulb.fill",
+                                    title: "1% Better Today",
+                                    message: "Make this goal something you can complete in 15-30 minutes. Small, consistent steps create massive results over time.",
+                                    backgroundColor: Color.orange.opacity(0.1),
+                                    iconColor: .orange
+                                )
                             }
+                            
+                            // Extra spacing to ensure content doesn't get hidden behind button
+                            Spacer(minLength: 120)
                         }
-                        
-                        // 1% improvement tip
-                        if selectedGoalType == .micro {
-                            TipCard(
-                                icon: "lightbulb.fill",
-                                title: "1% Better Today",
-                                message: "Make this goal something you can complete in 15-30 minutes. Small, consistent steps create massive results over time.",
-                                backgroundColor: Color.orange.opacity(0.1),
-                                iconColor: .orange
-                            )
-                        }
-                        
-                        Spacer(minLength: 100)
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.horizontal, 20)
                 }
                 
-                // Floating create button
+                // Fixed bottom button that stays at bottom
                 VStack {
-                    Spacer()
+                    //Divider()
                     
                     Button(action: createGoal) {
                         HStack {
@@ -172,11 +174,11 @@ struct CreateGoalView: View {
                                 .font(.headline)
                                 .fontWeight(.semibold)
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
+                            RoundedRectangle(cornerRadius: 20)
                                 .fill(selectedGoalType.gradient)
                                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                         )
@@ -184,8 +186,8 @@ struct CreateGoalView: View {
                         .opacity(title.isEmpty ? 0.6 : 1.0)
                     }
                     .disabled(title.isEmpty || isCreating)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                    //.padding(.horizontal, 20)
+                    //.padding(.bottom, 20)
                 }
             }
             .navigationTitle("New Goal")
@@ -276,7 +278,7 @@ struct GoalTypeCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 5) {
                 ZStack {
                     Circle()
                         .fill(isSelected ? type.gradient : LinearGradient(colors: [Color.gray.opacity(0.2)], startPoint: .top, endPoint: .bottom))
@@ -287,7 +289,7 @@ struct GoalTypeCard: View {
                         .foregroundColor(isSelected ? .white : .secondary)
                 }
                 
-                VStack(spacing: 2) {
+                VStack(spacing: 5) {
                     Text(type.rawValue)
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -301,14 +303,22 @@ struct GoalTypeCard: View {
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
+                        .padding(.bottom)
+                        .padding(.horizontal, 10)
                 }
             }
-            .frame(width: 100, height: 100) // Fixed size for all cards
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color(.tertiarySystemBackground) : Color.clear)
-                    .stroke(isSelected ? Color.clear : Color(.separator), lineWidth: 1)
-            )
+            .padding(.top, 10)
+            .frame(width: 115, height: 115) // Fixed size for all cards
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(.ultraThinMaterial)
+                } else {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.clear)
+                        .stroke(Color(.separator), lineWidth: 2)
+                }
+            }
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -364,7 +374,7 @@ struct TipCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(backgroundColor)
         )
     }
