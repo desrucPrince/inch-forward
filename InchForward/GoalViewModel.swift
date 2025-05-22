@@ -1,4 +1,3 @@
-
 //
 //  GoalViewModel.swift
 //  InchForward
@@ -20,6 +19,24 @@ struct GeminiMoveSuggestion: Decodable, Identifiable {
     var id = UUID() // For identifiable lists in UI before converting to a full Move object
     var title: String
     var description: String // This will map to Move.M_description
+    
+    // Custom decoding to handle potential JSON structure variations
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decode(String.self, forKey: .description)
+        // id is generated automatically
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case title, description
+    }
+    
+    // Additional initializer for manual creation
+    init(title: String, description: String) {
+        self.title = title
+        self.description = description
+    }
 }
 
 @MainActor // Ensures UI updates happen on the main thread
@@ -127,9 +144,22 @@ class GoalViewModel: ObservableObject {
         if self.todaysMove == nil && goal.moves.isEmpty {
             print("No moves found for goal '\(goal.title)'. Attempting to generate initial suggestions...")
             await generateAndProcessMoveSuggestions(for: goal, promptType: .newMovesForGoal)
-            // The UI should then offer these 'aiSuggestions'. If one is adopted,
-            // 'todaysMove' might be set by 'adoptAISuggestionAsNewMove'.
-            // Refresh alternatives again in case a new move was adopted and set as todaysMove.
+            
+            // Automatically adopt the first suggestion if available
+            if let firstSuggestion = aiSuggestions.first {
+                print("Automatically adopting first suggestion: \(firstSuggestion.title)")
+                adoptAISuggestionAsNewMove(firstSuggestion, forGoal: goal, setAsTodaysMove: true)
+            }
+            
+            // After attempting to adopt an AI suggestion, check if todaysMove is still nil.
+            // This handles the case where goal.todaysRecommendedMove might have returned nil initially,
+            // and we need to ensure the adopted AI move is set as the current move.
+            if self.todaysMove == nil, let adoptedMove = goal.moves.first(where: { $0.title == aiSuggestions.first?.title }) {
+                 self.todaysMove = adoptedMove
+                 self.dailyState = .pending // Ensure the state is pending for the new move
+            }
+            
+            // Refresh alternatives again in case a new move was adopted and set as todaysMove
             refreshAlternativeMoves(for: goal, excluding: self.todaysMove)
         }
     }
@@ -216,6 +246,104 @@ class GoalViewModel: ObservableObject {
 
     // MARK: - AI Integration
     
+    // Processes a newly created goal with AI to format it as SMART and generate initial moves.
+    func processNewGoalWithAI(_ goal: Goal) async {
+        isLoading = true // Indicate that AI processing is happening
+        aiError = nil    // Clear previous AI errors specific to this process
+        // aiSuggestions are for move generation, not goal formatting, so no need to clear here
+
+        // Prompt for SMART goal formatting
+        let smartPromptText = "Reformat the following goal into a SMART (Specific, Measurable, Attainable, Relevant, Time-bound) goal. Provide a concise title (max 15 words) and a detailed description (max 50 words) in JSON format with 'smartTitle' and 'smartDescription' keys. Original Goal Title: \"\(goal.title)\". Original Description: \"\(goal.shortDescriptionOrDetails)\"."
+
+        // Define the expected JSON schema for the SMART response
+        let smartSchema: [String: AIProxyJSONValue] = [
+            "description": "SMART formatted goal",
+            "type": "object",
+            "properties": [
+                "smartTitle": ["type": "string", "description": "The SMART formatted title"],
+                "smartDescription": ["type": "string", "description": "The SMART formatted description"]
+            ],
+            "required": ["smartTitle", "smartDescription"]
+        ]
+
+        let smartRequestBody = GeminiGenerateContentRequestBody(
+            contents: [.init(parts: [.text(smartPromptText)])],
+            generationConfig: .init(
+                maxOutputTokens: 256, // Adjust based on expected output length
+                temperature: 0.7,
+                responseMimeType: "application/json",
+                responseSchema: smartSchema
+            ),
+             systemInstruction: .init(parts: [.text("You are a helpful assistant that reformats goals into the SMART criteria.")])
+        )
+
+        do {
+            print("Sending request to Gemini for SMART formatting goal: \(goal.title)")
+            let smartResponse = try await geminiService.generateContentRequest(
+                body: smartRequestBody,
+                model: "gemini-1.5-flash",
+                secondsToWait: 30
+            )
+
+            // Process the SMART response
+            if let firstCandidate = smartResponse.candidates?.first,
+               let content = firstCandidate.content,
+               let parts = content.parts, !parts.isEmpty {
+
+                var jsonText = ""
+                for part in parts {
+                    if case .text(let text) = part {
+                        jsonText += text
+                    }
+                }
+
+                print("Gemini SMART response (JSON text): \(jsonText)")
+
+                let cleanedJsonText = cleanupJsonResponse(jsonText) // Reuse existing cleanup
+                let jsonData = Data(cleanedJsonText.utf8)
+
+                struct SMARTResponse: Decodable {
+                    let smartTitle: String
+                    let smartDescription: String
+                }
+
+                let decoder = JSONDecoder()
+                let smartGoal = try decoder.decode(SMARTResponse.self, from: jsonData)
+
+                // Update the existing goal object with SMART details
+                goal.title = smartGoal.smartTitle
+                goal.G_description = smartGoal.smartDescription
+
+                print("Successfully formatted goal to SMART: \(goal.title)")
+
+                // Now, generate initial moves based on the SMART formatted goal
+                 // Since this is a new goal, it won't have existing moves,
+                 // and generateAndProcessMoveSuggestions is designed to handle this
+                 // by generating new suggestions and adopting the first one.
+                await generateAndProcessMoveSuggestions(for: goal, promptType: .newMovesForGoal)
+
+            } else {
+                 print("No valid text part in Gemini SMART response.")
+                 self.aiError = "AI did not provide valid SMART formatting suggestions."
+            }
+            
+             // Log API usage for SMART formatting
+            if let usage = smartResponse.usageMetadata {
+                print("Gemini SMART Formatting API Usage: \(usage.promptTokenCount ?? 0) prompt, \(usage.cachedContentTokenCount ?? 0) cached, \(usage.candidatesTokenCount ?? 0) candidates, \(usage.totalTokenCount ?? 0) total tokens.")
+            }
+
+        } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBodyString) {
+            let messageToPrint = responseBodyString ?? "No response body"
+            print("Gemini SMART formatting request failed. Status: \(statusCode), Body: \(messageToPrint)")
+            self.aiError = "AI service error during SMART formatting (\(statusCode)). Check console for details."
+        } catch {
+            print("Error calling Gemini service for SMART formatting: \(error.localizedDescription)")
+            self.aiError = "Could not reach AI service for SMART formatting. Details: \(error.localizedDescription)"
+        }
+
+        isLoading = false
+    }
+
     // Defines the type of prompt for generating move suggestions
     enum AIPromptType {
         case newMovesForGoal // For when a goal has no moves
@@ -226,6 +354,7 @@ class GoalViewModel: ObservableObject {
     private func generateAndProcessMoveSuggestions(for goal: Goal, promptType: AIPromptType) async {
         isLoading = true
         self.aiError = nil // Clear previous specific AI error for this call
+        self.aiSuggestions = [] // Clear previous suggestions
 
         var promptText = ""
         let goalTitle = goal.title // From Goal model
@@ -277,18 +406,60 @@ class GoalViewModel: ObservableObject {
             // Process the response
             if let firstCandidate = response.candidates?.first,
                let content = firstCandidate.content,
-               let part = content.parts?.first, // Assuming 'parts' is Optional [Part]? on Content
-               case .text(let jsonText) = part {
+               let parts = content.parts, // Assuming 'parts' is Optional [Part]? on Content
+               !parts.isEmpty {
+                
+                // Extract JSON text from the response
+                var jsonText = ""
+                for part in parts {
+                    if case .text(let text) = part {
+                        jsonText += text
+                    }
+                }
+                
                 print("Gemini response (JSON text): \(jsonText)")
-                let jsonData = Data(jsonText.utf8)
+                
+                // Try to clean up the JSON if it's not properly formatted
+                let cleanedJsonText = cleanupJsonResponse(jsonText)
+                let jsonData = Data(cleanedJsonText.utf8)
+                
                 let decoder = JSONDecoder()
                 do {
+                    // First try standard JSON array decoding
                     let suggestions = try decoder.decode([GeminiMoveSuggestion].self, from: jsonData)
                     self.aiSuggestions = suggestions
                     print("Successfully decoded \(suggestions.count) suggestions from AI.")
-                } catch {
-                    print("Error decoding JSON from Gemini: \(error.localizedDescription). JSON: \(jsonText)")
-                    self.aiError = "Failed to understand AI suggestions. Details: \(error.localizedDescription)"
+                } catch let decodingError {
+                    print("Error decoding JSON from Gemini: \(decodingError.localizedDescription). JSON: \(cleanedJsonText)")
+                    
+                    // Try parsing as a different JSON structure
+                    do {
+                        // Some APIs might wrap the array in a container object
+                        struct ResponseWrapper: Decodable {
+                            let items: [GeminiMoveSuggestion]?
+                            let suggestions: [GeminiMoveSuggestion]?
+                            let results: [GeminiMoveSuggestion]?
+                        }
+                        
+                        let wrapper = try decoder.decode(ResponseWrapper.self, from: jsonData)
+                        let extractedSuggestions = wrapper.items ?? wrapper.suggestions ?? wrapper.results
+                        
+                        if let suggestions = extractedSuggestions, !suggestions.isEmpty {
+                            self.aiSuggestions = suggestions
+                            print("Successfully decoded \(suggestions.count) suggestions from wrapped JSON.")
+                            return
+                        }
+                    } catch {
+                        print("Also failed to decode as wrapped JSON: \(error.localizedDescription)")
+                    }
+                    
+                    // If all JSON decoding attempts fail, try regex extraction
+                    if let extractedSuggestions = extractSuggestionsFromText(jsonText) {
+                        self.aiSuggestions = extractedSuggestions
+                        print("Extracted \(extractedSuggestions.count) suggestions using fallback method.")
+                    } else {
+                        self.aiError = "Failed to understand AI suggestions. Details: \(decodingError.localizedDescription)"
+                    }
                 }
             } else {
                 // Improved debug message for when parsing fails
@@ -313,7 +484,7 @@ class GoalViewModel: ObservableObject {
 
         } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBodyString) { // Assuming responseBody is String?
             // CORRECTED: If responseBodyString is String?, use it directly or provide a default.
-            let messageToPrint = responseBodyString
+            let messageToPrint = responseBodyString ?? "No response body"
             print("Gemini request failed. Status: \(statusCode), Body: \(messageToPrint)")
             self.aiError = "AI service error (\(statusCode)). Check console for details."
         } catch {
@@ -321,6 +492,117 @@ class GoalViewModel: ObservableObject {
             self.aiError = "Could not reach AI service. Details: \(error.localizedDescription)"
         }
         isLoading = false
+    }
+    
+    // Helper function to clean up JSON response that might have extra text or formatting issues
+    private func cleanupJsonResponse(_ jsonText: String) -> String {
+        // Try to extract just the JSON array part if there's extra text
+        if let startIndex = jsonText.firstIndex(of: "["),
+           let endIndex = jsonText.lastIndex(of: "]") {
+            let rangeStart = jsonText.index(startIndex, offsetBy: 0)
+            let rangeEnd = jsonText.index(endIndex, offsetBy: 1)
+            return String(jsonText[rangeStart..<rangeEnd])
+        }
+        
+        // If no array brackets found, check if it might be a JSON object
+        if let startIndex = jsonText.firstIndex(of: "{"),
+           let endIndex = jsonText.lastIndex(of: "}") {
+            let rangeStart = jsonText.index(startIndex, offsetBy: 0)
+            let rangeEnd = jsonText.index(endIndex, offsetBy: 1)
+            return String(jsonText[rangeStart..<rangeEnd])
+        }
+        
+        return jsonText
+    }
+    
+    // Improved fallback method to extract suggestions if JSON parsing fails
+    private func extractSuggestionsFromText(_ text: String) -> [GeminiMoveSuggestion]? {
+        // Simple regex-based extraction as a fallback
+        var suggestions: [GeminiMoveSuggestion] = []
+        
+        // First try the pattern where title comes before description
+        let pattern1 = "\"title\"\\s*:\\s*\"([^\"]+)\"[^\"]*\"description\"\\s*:\\s*\"([^\"]+)\""
+        // Also try the pattern where description comes before title
+        let pattern2 = "\"description\"\\s*:\\s*\"([^\"]+)\"[^\"]*\"title\"\\s*:\\s*\"([^\"]+)\""
+        
+        do {
+            // Try first pattern (title then description)
+            let regex1 = try NSRegularExpression(pattern: pattern1, options: [])
+            let nsString = text as NSString
+            let matches1 = regex1.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+            
+            for match in matches1 {
+                if match.numberOfRanges >= 3 {
+                    let titleRange = match.range(at: 1)
+                    let descriptionRange = match.range(at: 2)
+                    
+                    if titleRange.location != NSNotFound && descriptionRange.location != NSNotFound {
+                        let title = nsString.substring(with: titleRange)
+                        let description = nsString.substring(with: descriptionRange)
+                        
+                        let suggestion = GeminiMoveSuggestion(title: title, description: description)
+                        suggestions.append(suggestion)
+                    }
+                }
+            }
+            
+            // If first pattern didn't find anything, try second pattern (description then title)
+            if suggestions.isEmpty {
+                let regex2 = try NSRegularExpression(pattern: pattern2, options: [])
+                let matches2 = regex2.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+                
+                for match in matches2 {
+                    if match.numberOfRanges >= 3 {
+                        let descriptionRange = match.range(at: 1)
+                        let titleRange = match.range(at: 2)
+                        
+                        if titleRange.location != NSNotFound && descriptionRange.location != NSNotFound {
+                            let title = nsString.substring(with: titleRange)
+                            let description = nsString.substring(with: descriptionRange)
+                            
+                            let suggestion = GeminiMoveSuggestion(title: title, description: description)
+                            suggestions.append(suggestion)
+                        }
+                    }
+                }
+            }
+            
+            // If we found suggestions, return them
+            if !suggestions.isEmpty {
+                return suggestions
+            }
+            
+            // Last resort: try to find any title-like and description-like content
+            // This is very lenient and might produce false positives
+            let titlePattern = "\"([^\"]{3,50})\"" // Look for quoted strings that could be titles
+            let titleRegex = try NSRegularExpression(pattern: titlePattern, options: [])
+            let titleMatches = titleRegex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+            
+            // If we found at least a few potential titles
+            if titleMatches.count >= 2 {
+                for i in 0..<min(5, titleMatches.count) {
+                    let match = titleMatches[i]
+                    if match.numberOfRanges >= 1 {
+                        let titleRange = match.range(at: 1)
+                        if titleRange.location != NSNotFound {
+                            let title = nsString.substring(with: titleRange)
+                            // Create a suggestion with just a title if that's all we can extract
+                            let suggestion = GeminiMoveSuggestion(
+                                title: title,
+                                description: "Auto-generated description for \(title)"
+                            )
+                            suggestions.append(suggestion)
+                        }
+                    }
+                }
+            }
+            
+            return suggestions.isEmpty ? nil : suggestions
+            
+        } catch {
+            print("Regex error: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // Converts a GeminiMoveSuggestion into a persisted Move object and adds it to the model context.

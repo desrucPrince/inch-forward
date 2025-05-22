@@ -14,6 +14,7 @@ struct HomeView: View {
 
     @State private var showSwapMoveSheet = false
     @State private var showCreateGoalSheet = false
+    @State private var isEditGoalActive = false
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: GoalViewModel(modelContext: modelContext))
@@ -45,8 +46,8 @@ struct HomeView: View {
                                 Label("No Moves for \(viewModel.currentGoal?.title ?? "Goal")", systemImage: "figure.walk.motion")
                             } description: {
                                 Text("This goal doesn't have any moves defined yet. Add some moves to get started.")
-                                Button("Add Moves to Goal") {
-                                    print("Navigate to add moves for goal: \(viewModel.currentGoal?.title ?? "")")
+                                NavigationLink(destination: EditGoalView(viewModel: viewModel), isActive: $isEditGoalActive) {
+                                    Text("Add Moves to Goal")
                                 }
                             }
                         } else {
@@ -56,6 +57,7 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Inch Forward")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -68,9 +70,7 @@ struct HomeView: View {
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     if viewModel.currentGoal != nil {
-                        NavigationLink {
-                            Text("Edit Goal / View All Goals (Not Implemented)")
-                        } label: {
+                        NavigationLink(destination: EditGoalView(viewModel: viewModel), isActive: $isEditGoalActive) {
                             Image(systemName: "list.bullet")
                         }
                     }
@@ -93,7 +93,8 @@ struct HomeView: View {
                             }
                         ),
                         allPossibleMovesForGoal: viewModel.alternativeMoves.isEmpty && viewModel.todaysMove != nil ? currentGoal.moves.filter { $0.id != viewModel.todaysMove?.id } : viewModel.alternativeMoves,
-                        goal: currentGoal
+                        goal: currentGoal,
+                        viewModel: viewModel
                     )
                     .presentationDetents([.medium, .large])
                 } else {
@@ -103,6 +104,23 @@ struct HomeView: View {
             .sheet(isPresented: $showCreateGoalSheet) {
                 CreateGoalView()
                     .environment(\.modelContext, modelContext)
+                    .environmentObject(viewModel)
+            }
+            .onChange(of: showCreateGoalSheet) { oldValue, newValue in
+                if oldValue == true && newValue == false {
+                    // Sheet was dismissed, reload data
+                    Task {
+                        await viewModel.loadTodaysSituation()
+                    }
+                }
+            }
+            .onChange(of: isEditGoalActive) { oldValue, newValue in
+                if oldValue == true && newValue == false {
+                    // User returned from EditGoalView, reload data
+                    Task {
+                        await viewModel.loadTodaysSituation()
+                    }
+                }
             }
         }
     }
