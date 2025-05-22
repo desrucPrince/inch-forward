@@ -1,16 +1,17 @@
+
 import SwiftUI
 import SwiftData
 
 struct CreateGoalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var viewModel: GoalViewModel
+    @Environment(GoalViewModel.self) var viewModel
 
     @State private var title: String = ""
     @State private var description: String = ""
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 TextField("Goal Title", text: $title)
                 TextField("Description (Optional)", text: $description, axis: .vertical)
@@ -36,7 +37,7 @@ struct CreateGoalView: View {
             }
             .navigationTitle("New Goal")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
             }
@@ -52,5 +53,5 @@ struct CreateGoalView: View {
     
     return CreateGoalView()
         .modelContainer(container)
-        .environmentObject(viewModel)
+        .environment(viewModel)
 }

@@ -9,15 +9,15 @@ import SwiftUI
 import SwiftData
 
 struct HomeView: View {
-    @StateObject private var viewModel: GoalViewModel
+    @State private var viewModel: GoalViewModel
     @Environment(\.modelContext) private var modelContext
 
     @State private var showSwapMoveSheet = false
     @State private var showCreateGoalSheet = false
-    @State private var isEditGoalActive = false
+    @State private var showEditGoal = false
 
     init(modelContext: ModelContext) {
-        _viewModel = StateObject(wrappedValue: GoalViewModel(modelContext: modelContext))
+        _viewModel = State(wrappedValue: GoalViewModel(modelContext: modelContext))
     }
 
     var body: some View {
@@ -46,9 +46,10 @@ struct HomeView: View {
                                 Label("No Moves for \(viewModel.currentGoal?.title ?? "Goal")", systemImage: "figure.walk.motion")
                             } description: {
                                 Text("This goal doesn't have any moves defined yet. Add some moves to get started.")
-                                NavigationLink(destination: EditGoalView(viewModel: viewModel), isActive: $isEditGoalActive) {
-                                    Text("Add Moves to Goal")
+                                Button("Add Moves to Goal") {
+                                    showEditGoal = true
                                 }
+                                .buttonStyle(.borderedProminent)
                             }
                         } else {
                             Text("Something went wrong. Try restarting the app.")
@@ -59,7 +60,7 @@ struct HomeView: View {
             .navigationTitle("Inch Forward")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         Task {
                             await viewModel.loadTodaysSituation()
@@ -68,13 +69,18 @@ struct HomeView: View {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     if viewModel.currentGoal != nil {
-                        NavigationLink(destination: EditGoalView(viewModel: viewModel), isActive: $isEditGoalActive) {
+                        Button {
+                            showEditGoal = true
+                        } label: {
                             Image(systemName: "list.bullet")
                         }
                     }
                 }
+            }
+            .navigationDestination(isPresented: $showEditGoal) {
+                EditGoalView(viewModel: viewModel)
             }
             .onAppear {
                 Task {
@@ -104,7 +110,7 @@ struct HomeView: View {
             .sheet(isPresented: $showCreateGoalSheet) {
                 CreateGoalView()
                     .environment(\.modelContext, modelContext)
-                    .environmentObject(viewModel)
+                    .environment(viewModel)
             }
             .onChange(of: showCreateGoalSheet) { oldValue, newValue in
                 if oldValue == true && newValue == false {
@@ -114,7 +120,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .onChange(of: isEditGoalActive) { oldValue, newValue in
+            .onChange(of: showEditGoal) { oldValue, newValue in
                 if oldValue == true && newValue == false {
                     // User returned from EditGoalView, reload data
                     Task {

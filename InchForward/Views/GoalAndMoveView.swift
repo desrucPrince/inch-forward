@@ -1,10 +1,11 @@
+
 import SwiftUI
 import SwiftData
 
 struct GoalAndMoveView: View {
     @Bindable var goal: Goal
     @Bindable var move: Move
-    @ObservedObject var viewModel: GoalViewModel
+    @State var viewModel: GoalViewModel
     @Binding var showSwapMoveSheet: Bool
 
     var body: some View {
@@ -13,14 +14,14 @@ struct GoalAndMoveView: View {
             VStack(alignment: .leading) {
                 Text("MACRO GOAL:")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 Text(goal.title)
                     .font(.title2)
                     .fontWeight(.bold)
                 if let desc = goal.G_description, !desc.isEmpty {
                     Text(desc)
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundStyle(.gray)
                 }
             }
             .padding(.horizontal)
@@ -31,21 +32,21 @@ struct GoalAndMoveView: View {
             VStack(alignment: .leading) {
                 Text("TODAY'S 1% MOVE:")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 Text(move.title)
                     .font(.title)
                     .fontWeight(.semibold)
                 if let moveDesc = move.M_description, !moveDesc.isEmpty {
                     Text(moveDesc)
                         .font(.body)
-                        .foregroundColor(.gray)
+                        .foregroundStyle(.gray)
                 }
                 HStack {
                     Image(systemName: "timer")
                     Text(move.displayDuration)
                 }
                 .font(.subheadline)
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundStyle(.secondary.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -82,7 +83,7 @@ struct GoalAndMoveView: View {
                         .padding(.horizontal, 5)
                         .frame(minWidth: 0, maxWidth: .infinity)
                         .background(.ultraThinMaterial)
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                         .font(.headline)
                         .cornerRadius(10)
                 }
@@ -102,7 +103,7 @@ struct GoalAndMoveView: View {
             .padding(.vertical, 10)
             .frame(minWidth: 0, maxWidth: .infinity)
             .background(.ultraThinMaterial)
-            .foregroundColor(.primary)
+            .foregroundStyle(.primary)
             .font(.headline)
             .cornerRadius(10)
         }
@@ -126,4 +127,4 @@ struct GoalAndMoveView: View {
         showSwapMoveSheet: .constant(false)
     )
     .modelContainer(container)
-} 
+}

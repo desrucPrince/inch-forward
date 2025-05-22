@@ -1,3 +1,4 @@
+
 import SwiftUI
 import SwiftData
 
@@ -8,13 +9,13 @@ struct SwapMoveView: View {
     @Binding var selectedMoveBinding: Move?
     var allPossibleMovesForGoal: [Move]
     var goal: Goal
-    @ObservedObject var viewModel: GoalViewModel
+    @State var viewModel: GoalViewModel
 
     @State private var internalAlternativeMoves: [Move] = []
     @State private var isLoadingAlternatives = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
                 if viewModel.isLoading {
                     ProgressView("Finding other moves...")
@@ -27,7 +28,7 @@ struct SwapMoveView: View {
                                 VStack(alignment: .leading) {
                                     Text("EXISTING MOVES")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                         .padding(.horizontal)
                                     
                                     ForEach(internalAlternativeMoves) { move in
@@ -49,7 +50,7 @@ struct SwapMoveView: View {
                                 VStack(alignment: .leading) {
                                     Text("AI SUGGESTIONS")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                         .padding(.horizontal)
                                     
                                     ForEach(viewModel.aiSuggestions) { suggestion in
@@ -73,7 +74,7 @@ struct SwapMoveView: View {
                                         .font(.headline)
                                     Text(error)
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.secondary)
                                     Button("Try Again") {
                                         Task {
                                             await viewModel.prepareForSwap()
@@ -105,10 +106,10 @@ struct SwapMoveView: View {
             .navigationTitle("Swap Move")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Refresh") {
                         Task {
                             await viewModel.prepareForSwap()
@@ -134,22 +135,22 @@ struct AISuggestionCard: View {
                 HStack {
                     Text(suggestion.title)
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "sparkles")
-                        .foregroundColor(.yellow)
+                        .foregroundStyle(.yellow)
                 }
                 
                 Text(suggestion.description)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(3)
                 
                 HStack {
                     Spacer()
                     Text("Tap to adopt this suggestion")
                         .font(.caption2)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(.blue)
                 }
             }
             .padding()
