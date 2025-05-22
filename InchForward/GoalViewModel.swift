@@ -631,7 +631,7 @@ class GoalViewModel: ObservableObject {
         aiSuggestions.removeAll { $0.id == suggestion.id } // Remove the adopted suggestion from the list
 
         do {
-            try modelContext.save() // Persist the new Move
+            try? modelContext.save() // Persist the new Move
             print("New move '\(newMove.title)' created from AI suggestion and saved.")
         } catch {
             print("Error saving new move from AI suggestion: \(error.localizedDescription)")

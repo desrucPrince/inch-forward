@@ -1,3 +1,4 @@
+
 import SwiftUI
 import SwiftData
 
@@ -5,7 +6,7 @@ struct EditGoalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
     @Query(sort: \Goal.createdAt, order: .forward) private var goals: [Goal]
-    @ObservedObject var viewModel: GoalViewModel
+    @State var viewModel: GoalViewModel
     
     @State private var selectedGoal: Goal?
     @State private var showEditSheet = false
@@ -38,7 +39,7 @@ struct EditGoalView: View {
             }
             .navigationTitle("Your Goals")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
@@ -59,8 +60,9 @@ struct EditGoalView: View {
 }
 
 struct GoalSectionView: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var goal: Goal
-    @ObservedObject var viewModel: GoalViewModel
+    @State var viewModel: GoalViewModel
     var editAction: (Goal) -> Void
     var addMoveAction: (Goal) -> Void
     
@@ -77,7 +79,7 @@ struct GoalSectionView: View {
                         if let description = goal.G_description, !description.isEmpty {
                             Text(description)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .lineLimit(isExpanded ? nil : 2)
                         }
                     }
@@ -88,7 +90,7 @@ struct GoalSectionView: View {
                         isExpanded.toggle()
                     } label: {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .contentShape(Rectangle())
@@ -103,11 +105,11 @@ struct GoalSectionView: View {
                     HStack {
                         Text("Status:")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         
                         Text(goal.isCompleted ? "Completed" : "In Progress")
                             .font(.caption)
-                            .foregroundColor(goal.isCompleted ? .green : .blue)
+                            .foregroundStyle(goal.isCompleted ? .green : .blue)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                             .background(
@@ -151,7 +153,7 @@ struct GoalSectionView: View {
                         if goal.moves.isEmpty {
                             Text("No moves created yet")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .padding(.vertical, 4)
                         } else {
                             ForEach(goal.moves) { move in
@@ -193,7 +195,7 @@ struct MoveRow: View {
                 if let description = move.M_description, !description.isEmpty {
                     Text(description)
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
@@ -203,15 +205,15 @@ struct MoveRow: View {
             HStack(spacing: 4) {
                 Text(move.category.rawValue.capitalized)
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 
                 Text("•")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                 
                 Text(move.displayDuration)
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)
@@ -222,13 +224,13 @@ struct EditGoalDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
     @Bindable var goal: Goal
-    @ObservedObject var viewModel: GoalViewModel
+    @State var viewModel: GoalViewModel
     
     @State private var title: String = ""
     @State private var description: String = ""
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 TextField("Goal Title", text: $title)
                 TextField("Description", text: $description, axis: .vertical)
@@ -256,10 +258,10 @@ struct EditGoalDetailView: View {
             .navigationTitle("Edit Goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         goal.title = title
                         goal.G_description = description.isEmpty ? nil : description
@@ -281,7 +283,7 @@ struct AddMoveView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
     @Bindable var goal: Goal
-    @ObservedObject var viewModel: GoalViewModel
+    @State var viewModel: GoalViewModel
     
     @State private var title: String = ""
     @State private var description: String = ""
@@ -290,7 +292,7 @@ struct AddMoveView: View {
     @State private var isDefaultMove: Bool = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 TextField("Move Title", text: $title)
                 
@@ -347,7 +349,7 @@ struct AddMoveView: View {
             .navigationTitle("Add New Move")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
             }
