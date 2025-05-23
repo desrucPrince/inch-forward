@@ -1,4 +1,3 @@
-
 import SwiftUI
 import SwiftData
 import UserNotifications
@@ -126,9 +125,9 @@ final class GoalViewModel {
         if progress.wasSkipped {
             dailyState = .skipped
             todaysMove = progress.moveCompleted
-        } else if let completedMove = progress.moveCompleted {
-            dailyState = .completed
-            todaysMove = completedMove
+        } else if progress.moveCompleted != nil {
+            // User has completed at least one move today, but let's see if they can do more
+            await checkForAdditionalMoves()
         } else {
             dailyState = .pending
             await determineDefaultOrSuggestMove()
@@ -182,7 +181,67 @@ final class GoalViewModel {
         }
         
         recordDailyProgress(goal: goal, move: move, wasSkipped: false)
-        dailyState = .completed
+        
+        // Instead of setting state to completed immediately, prepare next move
+        Task {
+            await prepareNextMove()
+        }
+    }
+    
+    // Function to manually look for more moves when user wants to continue
+    func lookForMoreMoves() async {
+        await setLoadingState(true)
+        await checkForAdditionalMoves()
+        await setLoadingState(false)
+    }
+    
+    // New function to prepare the next move after completion
+    private func prepareNextMove() async {
+        guard let goal = currentGoal else { return }
+        
+        // Find a different move to do next
+        let completedMoveIds = getCompletedMoveIdsForToday()
+        let availableMoves = goal.moves.filter { move in
+            !completedMoveIds.contains(move.id)
+        }
+        
+        if let nextMove = availableMoves.first {
+            // Use an existing unfinished move
+            todaysMove = nextMove
+            dailyState = .pending
+            refreshAlternativeMoves(excluding: nextMove)
+        } else {
+            // Generate new moves if all existing ones are completed
+            await generateAndProcessMoveSuggestions(for: goal, promptType: .newMovesForGoal)
+            
+            if let firstSuggestion = aiSuggestions.first {
+                adoptAISuggestionAsNewMove(firstSuggestion, forGoal: goal, setAsTodaysMove: true)
+            } else {
+                // If AI generation fails, show completion state
+                dailyState = .completed
+            }
+        }
+    }
+    
+    // Helper function to get completed move IDs for today
+    private func getCompletedMoveIdsForToday() -> Set<UUID> {
+        guard let goal = currentGoal else { return Set() }
+        
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        
+        let todaysProgresses = goal.dailyProgresses.filter { progress in
+            calendar.isDate(progress.date, inSameDayAs: todayStart) && 
+            !progress.wasSkipped && 
+            progress.moveCompleted != nil
+        }
+        
+        return Set(todaysProgresses.compactMap { $0.moveCompleted?.id })
+    }
+    
+    // Public function to get count of completed moves today
+    func getCompletedMovesCountForToday() -> Int {
+        return getCompletedMoveIdsForToday().count
     }
     
     func markAsSkipped() {
@@ -632,6 +691,62 @@ final class GoalViewModel {
             print("Regex error: \(error.localizedDescription)")
             return nil
         }
+    }
+    
+    // New function to check if user can do additional moves after completing some
+    private func checkForAdditionalMoves() async {
+        guard let goal = currentGoal else { 
+            dailyState = .completed
+            return 
+        }
+        
+        let completedMoveIds = getCompletedMoveIdsForToday()
+        let availableMoves = goal.moves.filter { move in
+            !completedMoveIds.contains(move.id)
+        }
+        
+        if let nextMove = availableMoves.first {
+            // There are more moves available
+            todaysMove = nextMove
+            dailyState = .pending
+            refreshAlternativeMoves(excluding: nextMove)
+        } else if !goal.moves.isEmpty {
+            // All existing moves completed, try to generate new ones
+            await generateAndProcessMoveSuggestions(for: goal, promptType: .newMovesForGoal)
+            
+            if let firstSuggestion = aiSuggestions.first {
+                adoptAISuggestionAsNewMove(firstSuggestion, forGoal: goal, setAsTodaysMove: true)
+            } else {
+                // Show completion state only if we can't generate new moves
+                dailyState = .completed
+                // Set todaysMove to the last completed move for display purposes
+                let lastCompleted = getLastCompletedMoveForToday()
+                todaysMove = lastCompleted
+            }
+        } else {
+            // No moves exist and generation failed/not attempted
+            dailyState = .completed
+            let lastCompleted = getLastCompletedMoveForToday()
+            todaysMove = lastCompleted
+        }
+    }
+    
+    // Helper function to get the last completed move for today (for display in completion view)
+    private func getLastCompletedMoveForToday() -> Move? {
+        guard let goal = currentGoal else { return nil }
+        
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        
+        let todaysProgresses = goal.dailyProgresses
+            .filter { progress in
+                calendar.isDate(progress.date, inSameDayAs: todayStart) && 
+                !progress.wasSkipped && 
+                progress.moveCompleted != nil
+            }
+            .sorted { $0.date > $1.date } // Most recent first
+        
+        return todaysProgresses.first?.moveCompleted
     }
 }
 

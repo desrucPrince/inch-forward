@@ -33,7 +33,19 @@ struct HomeView: View {
                     case .noGoal:
                         NoGoalView(showCreateGoalSheet: $showCreateGoalSheet)
                     case .completed:
-                        DayCompleteView(message: "Great job completing '\(viewModel.todaysMove?.title ?? "your move")'!")
+                        let completedCount = viewModel.getCompletedMovesCountForToday()
+                        let messageText = completedCount > 1 
+                            ? "Incredible! You've completed \(completedCount) moves today including '\(viewModel.todaysMove?.title ?? "your latest move")'!"
+                            : "Great job completing '\(viewModel.todaysMove?.title ?? "your move")'!"
+                        
+                        DayCompleteView(
+                            message: messageText,
+                            onContinue: {
+                                Task {
+                                    await viewModel.lookForMoreMoves()
+                                }
+                            }
+                        )
                     case .skipped:
                         DayCompleteView(message: "Move skipped for today. Fresh start tomorrow!")
                     case .later(let date):
