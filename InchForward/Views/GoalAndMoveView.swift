@@ -11,6 +11,7 @@ struct GoalAndMoveView: View {
     @State private var selectedDetailLevel: MoveDetailLevel = .detailed
     @State private var isAdjustingSlider: Bool = false
     @State private var showDetailSlider: Bool = false
+    @State private var isAdjustingDetailLevel: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -55,6 +56,10 @@ struct GoalAndMoveView: View {
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showDetailSlider.toggle()
+                            // Initialize detail level when showing slider
+                            if showDetailSlider {
+                                selectedDetailLevel = .detailed
+                            }
                         }
                     }) {
                         HStack(spacing: 4) {
@@ -77,6 +82,9 @@ struct GoalAndMoveView: View {
             .background(.ultraThinMaterial)
             .cornerRadius(20)
             .padding(.horizontal)
+            .blur(radius: isAdjustingDetailLevel ? 3 : 0)
+            .opacity(isAdjustingDetailLevel ? 0.6 : 1.0)
+            .animation(.easeInOut(duration: 0.4), value: isAdjustingDetailLevel)
             
             // Move Detail Slider (conditionally shown)
             if showDetailSlider {
@@ -84,8 +92,12 @@ struct GoalAndMoveView: View {
                     selectedLevel: $selectedDetailLevel,
                     isAdjusting: $isAdjustingSlider
                 ) { newLevel in
+                    isAdjustingDetailLevel = true
                     Task {
                         await viewModel.adjustMoveDetailLevel(move, to: newLevel)
+                        await MainActor.run {
+                            isAdjustingDetailLevel = false
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -153,6 +165,9 @@ struct GoalAndMoveView: View {
                 }
             }
             .padding(.horizontal)
+            .disabled(isAdjustingDetailLevel)
+            .opacity(isAdjustingDetailLevel ? 0.5 : 1.0)
+            .animation(.easeInOut(duration: 0.3), value: isAdjustingDetailLevel)
             Spacer()
         }
     }
