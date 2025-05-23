@@ -6,6 +6,11 @@ struct GoalAndMoveView: View {
     @Bindable var move: Move
     @State var viewModel: GoalViewModel
     @Binding var showSwapMoveSheet: Bool
+    
+    // Slider state
+    @State private var selectedDetailLevel: MoveDetailLevel = .detailed
+    @State private var isAdjustingSlider: Bool = false
+    @State private var showDetailSlider: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -43,6 +48,26 @@ struct GoalAndMoveView: View {
                 HStack {
                     Image(systemName: "timer")
                     Text(move.displayDuration)
+                    
+                    Spacer()
+                    
+                    // Toggle for detail slider
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showDetailSlider.toggle()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "slider.horizontal.3")
+                            Text("Adjust")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    }
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary.opacity(0.5))
@@ -52,6 +77,20 @@ struct GoalAndMoveView: View {
             .background(.ultraThinMaterial)
             .cornerRadius(20)
             .padding(.horizontal)
+            
+            // Move Detail Slider (conditionally shown)
+            if showDetailSlider {
+                MoveDetailSlider(
+                    selectedLevel: $selectedDetailLevel,
+                    isAdjusting: $isAdjustingSlider
+                ) { newLevel in
+                    Task {
+                        await viewModel.adjustMoveDetailLevel(move, to: newLevel)
+                    }
+                }
+                .padding(.horizontal)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
             
             // Recent Progress Section
             if !viewModel.getRecentCompletedMoves().isEmpty {

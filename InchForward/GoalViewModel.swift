@@ -61,6 +61,7 @@ final class GoalViewModel {
         case alternativeMoves(excluding: Move?)
     }
     
+    
     // MARK: - Initialization
     
     init(modelContext: ModelContext) {
@@ -321,10 +322,12 @@ final class GoalViewModel {
     }
     
     private func formatGoalAsSMART(_ goal: Goal) async {
+        let currentDateContext = getCurrentDateContext()
+        print("Including current date context in SMART formatting: \(Date())")
         let promptText = """
     Reformat the following goal into a SMART (Specific, Measurable, Attainable, Relevant, Time-bound) goal. 
     Provide a concise title (max 15 words) and a detailed description (max 50 words) in JSON format 
-    with 'smartTitle' and 'smartDescription' keys. 
+    with 'smartTitle' and 'smartDescription' keys.\(currentDateContext)
     Original Goal Title: "\(goal.title)". 
     Original Description: "\(goal.shortDescriptionOrDetails)".
     """
@@ -347,7 +350,7 @@ final class GoalViewModel {
                 responseMimeType: "application/json",
                 responseSchema: schema
             ),
-            systemInstruction: .init(parts: [.text("You are a helpful assistant that reformats goals into the SMART criteria.")])
+            systemInstruction: .init(parts: [.text("You are a helpful assistant that reformats goals into the SMART criteria. Always ensure time-bound elements use realistic future dates and deadlines based on the current date provided. Avoid suggesting past dates or unrealistic timelines.")])
         )
         
         do {
@@ -447,6 +450,7 @@ final class GoalViewModel {
         } else {
             print("No completed moves to include in AI context")
         }
+        print("Including current date context in move suggestions: \(Date())")
         
         let requestBody = GeminiGenerateContentRequestBody(
             contents: [.init(parts: [.text(promptText)])],
@@ -485,20 +489,21 @@ final class GoalViewModel {
         let goalTitle = goal.title
         let goalDetails = goal.shortDescriptionOrDetails
         let completedMovesContext = formatCompletedMovesForPrompt()
+        let currentDateContext = getCurrentDateContext()
         
         var promptText = ""
         
         switch type {
         case .newMovesForGoal:
             promptText = """
-        My current goal is: "\(goalTitle)". Description: "\(goalDetails)".\(completedMovesContext)
+        My current goal is: "\(goalTitle)". Description: "\(goalDetails)".\(completedMovesContext)\(currentDateContext)
         Suggest 3-5 concise, actionable steps (moves) to help achieve this goal. 
         Each move should have a short title (max 10 words) and a brief description (max 30 words).
         """
         case .alternativeMoves(let excludingMove):
             let exclusionText = excludingMove != nil ? " The current move is \"\(excludingMove!.title)\", so please suggest different ones." : ""
             promptText = """
-        For the goal: "\(goalTitle)" (Description: "\(goalDetails)"), suggest 3 alternative actionable steps (moves).\(exclusionText)\(completedMovesContext) 
+        For the goal: "\(goalTitle)" (Description: "\(goalDetails)"), suggest 3 alternative actionable steps (moves).\(exclusionText)\(completedMovesContext)\(currentDateContext) 
         Each move should have a short title (max 10 words) and a brief description (max 30 words).
         """
         }
@@ -842,6 +847,189 @@ final class GoalViewModel {
     private func getCurrentExistingMoves() -> [Move] {
         guard let goal = currentGoal else { return [] }
         return goal.moves
+    }
+    
+    // MARK: - Date Context for AI
+    
+    // Get current date context for AI prompts
+    private func getCurrentDateContext() -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .full
+        formatter.timeStyle = .none
+        let currentDateString = formatter.string(from: Date())
+        
+        return """
+        
+        Current date: \(currentDateString)
+        Please ensure all dates, timelines, and deadlines are realistic and in the future relative to this current date.
+        """
+    }
+    
+    // MARK: - Move Detail Level Adjustment
+    
+    // Generate adjusted move based on detail level
+    func adjustMoveDetailLevel(_ move: Move, to level: MoveDetailLevel) async {
+        await setLoadingState(true)
+        clearAIState()
+        
+        guard let goal = currentGoal else {
+            await setLoadingState(false)
+            return
+        }
+        
+        let adjustedMovePrompt = createMoveAdjustmentPrompt(move: move, level: level, goal: goal)
+        let schema = createMoveAdjustmentSchema()
+        
+        print("Adjusting move detail level to: \(level.title)")
+        
+        let requestBody = GeminiGenerateContentRequestBody(
+            contents: [.init(parts: [.text(adjustedMovePrompt)])],
+            generationConfig: .init(
+                maxOutputTokens: 512,
+                temperature: 0.7,
+                responseMimeType: "application/json",
+                responseSchema: schema
+            ),
+            systemInstruction: .init(parts: [.text("You are a helpful assistant that adjusts task detail levels. Provide appropriate detail based on the requested level while maintaining the core objective.")])
+        )
+        
+        do {
+            let response = try await geminiService.generateContentRequest(
+                body: requestBody,
+                model: "gemini-1.5-flash",
+                secondsToWait: 30
+            )
+            
+            await processAdjustedMoveResponse(response, for: move, level: level)
+            
+        } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBodyString) {
+            print("Move adjustment request failed. Status: \(statusCode), Body: \(responseBodyString)")
+            aiError = "Failed to adjust move detail level (\(statusCode))"
+        } catch {
+            print("Error adjusting move detail level: \(error.localizedDescription)")
+            aiError = "Could not adjust move detail level. Details: \(error.localizedDescription)"
+        }
+        
+        await setLoadingState(false)
+    }
+    
+    private func createMoveAdjustmentPrompt(move: Move, level: MoveDetailLevel, goal: Goal) -> String {
+        let currentDateContext = getCurrentDateContext()
+        let originalTitle = move.title
+        let originalDescription = move.M_description ?? ""
+        let originalDuration = move.estimatedDuration
+        
+        let levelInstructions: String
+        switch level {
+        case .vague:
+            levelInstructions = "Make this move very high-level and less overwhelming. Remove specific details and keep it simple and broad. Reduce time estimate."
+        case .concise:
+            levelInstructions = "Make this move brief and focused. Keep essential details but remove complexity. Slightly reduce time estimate."
+        case .detailed:
+            levelInstructions = "Keep the current level of detail as is, but ensure it's realistic and well-structured."
+        case .granular:
+            levelInstructions = "Break this move into more specific, actionable steps. Add helpful details and increase time estimate to be more realistic."
+        case .stepByStep:
+            levelInstructions = "Break this move into very small, micro-steps that can be easily completed in sequence. Each step should feel achievable. Significantly increase time estimate to be realistic."
+        }
+        
+        return """
+        For the goal: "\(goal.title)", adjust the following move to the "\(level.title)" detail level.
+        
+        Original Move:
+        Title: "\(originalTitle)"
+        Description: "\(originalDescription)"
+        Estimated Duration: \(originalDuration) seconds
+        
+        Instructions: \(levelInstructions)
+        \(currentDateContext)
+        
+        Provide an adjusted version with:
+        - Appropriate title length (shorter for vague, longer for granular)
+        - Description that matches the detail level
+        - Realistic time estimate in seconds for the adjusted complexity
+        
+        Return as JSON with 'title', 'description', and 'estimatedDuration' fields.
+        """
+    }
+    
+    private func createMoveAdjustmentSchema() -> [String: AIProxyJSONValue] {
+        return [
+            "description": "Adjusted move with appropriate detail level",
+            "type": "object",
+            "properties": [
+                "title": ["type": "string", "description": "Adjusted move title"],
+                "description": ["type": "string", "description": "Adjusted move description"],
+                "estimatedDuration": ["type": "integer", "description": "Estimated duration in seconds"]
+            ],
+            "required": ["title", "description", "estimatedDuration"]
+        ]
+    }
+    
+    private func processAdjustedMoveResponse(_ response: GeminiGenerateContentResponseBody, for move: Move, level: MoveDetailLevel) async {
+        print("Processing adjusted move response for level: \(level.title)")
+        
+        guard let firstCandidate = response.candidates?.first,
+              let content = firstCandidate.content,
+              let parts = content.parts,
+              let firstPart = parts.first else {
+            print("No candidates or parts found in move adjustment response.")
+            aiError = "AI did not provide valid move adjustment."
+            return
+        }
+        
+        let jsonText: String
+        switch firstPart {
+        case .text(let text):
+            jsonText = text
+        case .functionCall(_, _):
+            print("Unexpected function call in move adjustment response")
+            aiError = "AI response format not supported."
+            return
+        case .inlineData(_, _):
+            print("Unexpected inline data in move adjustment response")
+            aiError = "AI response format not supported."
+            return
+        }
+        
+        print("Move adjustment response (JSON text): \(jsonText)")
+        
+        do {
+            let cleanedJsonText = cleanupJsonResponse(jsonText)
+            let jsonData = Data(cleanedJsonText.utf8)
+            
+            struct AdjustedMoveResponse: Decodable {
+                let title: String
+                let description: String
+                let estimatedDuration: Int
+            }
+            
+            let adjustedMove = try JSONDecoder().decode(AdjustedMoveResponse.self, from: jsonData)
+            
+            // Update the move with adjusted details
+            move.title = adjustedMove.title
+            move.M_description = adjustedMove.description
+            move.estimatedDuration = TimeInterval(adjustedMove.estimatedDuration)
+            
+            // Save the changes
+            do {
+                try modelContext.save()
+                print("Successfully adjusted move to \(level.title) level: \(move.title)")
+            } catch {
+                print("Error saving adjusted move: \(error.localizedDescription)")
+                aiError = "Failed to save adjusted move."
+            }
+            
+        } catch {
+            print("Error decoding move adjustment response: \(error.localizedDescription)")
+            print("Raw JSON: \(jsonText)")
+            aiError = "Failed to process move adjustment response."
+        }
+        
+        // Log API usage
+        if let usage = response.usageMetadata {
+            print("Move Adjustment API Usage: \(usage.promptTokenCount ?? 0) prompt, \(usage.candidatesTokenCount ?? 0) candidates, \(usage.totalTokenCount ?? 0) total tokens.")
+        }
     }
 }
 
