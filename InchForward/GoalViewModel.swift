@@ -244,6 +244,24 @@ final class GoalViewModel {
         return getCompletedMoveIdsForToday().count
     }
     
+    // Public function to get recent completed moves for display purposes
+    func getRecentCompletedMoves(limit: Int = 3) -> [Move] {
+        return Array(getLastThreeCompletedMoves().prefix(limit))
+    }
+    
+    // Public function to get formatted completed moves summary for display
+    func getCompletedMovesDisplayText(limit: Int = 3) -> String {
+        let completedMoves = getRecentCompletedMoves(limit: limit)
+        
+        if completedMoves.isEmpty {
+            return "No recent completed moves"
+        }
+        
+        return completedMoves.enumerated().map { index, move in
+            "\(index + 1). \(move.title)"
+        }.joined(separator: "\n")
+    }
+    
     func markAsSkipped() {
         guard let goal = currentGoal else {
             print("Error: Cannot mark as skipped. No current goal.")
@@ -422,6 +440,14 @@ final class GoalViewModel {
         let promptText = createPromptText(for: goal, type: promptType)
         let schema = createMovesSuggestionsSchema()
         
+        // Debug: Log completed moves context
+        let completedMoves = getLastThreeCompletedMoves()
+        if !completedMoves.isEmpty {
+            print("Including \(completedMoves.count) completed moves in AI context: \(completedMoves.map { $0.title })")
+        } else {
+            print("No completed moves to include in AI context")
+        }
+        
         let requestBody = GeminiGenerateContentRequestBody(
             contents: [.init(parts: [.text(promptText)])],
             generationConfig: .init(
@@ -430,7 +456,7 @@ final class GoalViewModel {
                 responseMimeType: "application/json",
                 responseSchema: schema
             ),
-            systemInstruction: .init(parts: [.text("You are a helpful assistant that suggests actionable steps for goals.")])
+            systemInstruction: .init(parts: [.text("You are a helpful assistant that suggests actionable steps for goals. Focus on creating progressive momentum by building upon completed actions and avoiding duplicates. Suggest moves that naturally advance toward the goal while being distinct from previous work.")])
         )
         
         do {
@@ -458,20 +484,21 @@ final class GoalViewModel {
     private func createPromptText(for goal: Goal, type: AIPromptType) -> String {
         let goalTitle = goal.title
         let goalDetails = goal.shortDescriptionOrDetails
+        let completedMovesContext = formatCompletedMovesForPrompt()
         
         var promptText = ""
         
         switch type {
         case .newMovesForGoal:
             promptText = """
-        My current goal is: "\(goalTitle)". Description: "\(goalDetails)". 
+        My current goal is: "\(goalTitle)". Description: "\(goalDetails)".\(completedMovesContext)
         Suggest 3-5 concise, actionable steps (moves) to help achieve this goal. 
         Each move should have a short title (max 10 words) and a brief description (max 30 words).
         """
         case .alternativeMoves(let excludingMove):
             let exclusionText = excludingMove != nil ? " The current move is \"\(excludingMove!.title)\", so please suggest different ones." : ""
             promptText = """
-        For the goal: "\(goalTitle)" (Description: "\(goalDetails)"), suggest 3 alternative actionable steps (moves).\(exclusionText) 
+        For the goal: "\(goalTitle)" (Description: "\(goalDetails)"), suggest 3 alternative actionable steps (moves).\(exclusionText)\(completedMovesContext) 
         Each move should have a short title (max 10 words) and a brief description (max 30 words).
         """
         }
@@ -747,6 +774,74 @@ final class GoalViewModel {
             .sorted { $0.date > $1.date } // Most recent first
         
         return todaysProgresses.first?.moveCompleted
+    }
+    
+    // MARK: - Completed Moves Tracking for AI Context
+    
+    // Get the last three completed moves across all days for AI context
+    private func getLastThreeCompletedMoves() -> [Move] {
+        guard let goal = currentGoal else { return [] }
+        
+        let completedProgresses = goal.dailyProgresses
+            .filter { progress in
+                !progress.wasSkipped && progress.moveCompleted != nil
+            }
+            .sorted { $0.date > $1.date } // Most recent first
+        
+        let lastThreeMoves = Array(completedProgresses.prefix(3))
+            .compactMap { $0.moveCompleted }
+        
+        return lastThreeMoves
+    }
+    
+    // Format completed moves for AI prompt context
+    private func formatCompletedMovesForPrompt() -> String {
+        let completedMoves = getLastThreeCompletedMoves()
+        let existingMoves = getCurrentExistingMoves()
+        
+        var contextText = ""
+        
+        if !completedMoves.isEmpty {
+            let movesText = completedMoves.enumerated().map { index, move in
+                let moveTitle = move.title
+                let moveDescription = move.M_description ?? "No description"
+                return "\(index + 1). \"\(moveTitle)\" - \(moveDescription)"
+            }.joined(separator: "\n")
+            
+            contextText += """
+            
+            Recent completed moves (most recent first):
+            \(movesText)
+            """
+        }
+        
+        if !existingMoves.isEmpty {
+            let existingMovesText = existingMoves.enumerated().map { index, move in
+                let moveTitle = move.title
+                return "\(index + 1). \"\(moveTitle)\""
+            }.joined(separator: "\n")
+            
+            contextText += """
+            
+            Existing moves already available:
+            \(existingMovesText)
+            """
+        }
+        
+        if !contextText.isEmpty {
+            contextText += """
+            
+            Please suggest moves that build upon completed actions, create momentum toward the goal, and avoid duplicating existing moves.
+            """
+        }
+        
+        return contextText
+    }
+    
+    // Get current existing moves for the goal
+    private func getCurrentExistingMoves() -> [Move] {
+        guard let goal = currentGoal else { return [] }
+        return goal.moves
     }
 }
 

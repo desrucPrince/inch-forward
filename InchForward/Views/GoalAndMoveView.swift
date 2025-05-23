@@ -1,4 +1,3 @@
-
 import SwiftUI
 import SwiftData
 
@@ -54,6 +53,32 @@ struct GoalAndMoveView: View {
             .cornerRadius(20)
             .padding(.horizontal)
             
+            // Recent Progress Section
+            if !viewModel.getRecentCompletedMoves().isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .foregroundStyle(.green)
+                        Text("RECENT PROGRESS:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    ForEach(Array(viewModel.getRecentCompletedMoves().enumerated()), id: \.offset) { index, completedMove in
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                            Text(completedMove.title)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 10)
+            }
 
             // Action Buttons
             HStack(spacing: 15) {

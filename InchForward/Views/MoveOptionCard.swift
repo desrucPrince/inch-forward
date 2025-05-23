@@ -12,6 +12,8 @@ struct MoveOptionCard: View {
                 Text(move.title)
                     .font(.headline)
                     .foregroundColor(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 if let desc = move.M_description, !desc.isEmpty {
                     Text(desc)
                         .font(.caption)
@@ -30,7 +32,7 @@ struct MoveOptionCard: View {
                 }
             }
             .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
             .background(Color(UIColor.systemBackground))
             .cornerRadius(20)
             .overlay(

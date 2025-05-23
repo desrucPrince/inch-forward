@@ -1,4 +1,3 @@
-
 import SwiftUI
 import SwiftData
 
@@ -48,10 +47,22 @@ struct SwapMoveView: View {
                             // AI Suggestions section
                             if !viewModel.aiSuggestions.isEmpty {
                                 VStack(alignment: .leading) {
-                                    Text("AI SUGGESTIONS")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal)
+                                    HStack {
+                                        Text("AI SUGGESTIONS")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        if !viewModel.getRecentCompletedMoves().isEmpty {
+                                            HStack {
+                                                Image(systemName: "chart.line.uptrend.xyaxis")
+                                                    .foregroundStyle(.green)
+                                                Text("Builds on progress")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.green)
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal)
                                     
                                     ForEach(viewModel.aiSuggestions) { suggestion in
                                         AISuggestionCard(
